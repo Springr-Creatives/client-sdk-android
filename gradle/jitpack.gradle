@@ -1,0 +1,24 @@
+// Disable signing for JitPack builds
+allprojects {
+    tasks.withType(Sign) {
+        enabled = false
+    }
+}
+
+// Configure publishing for JitPack
+subprojects {
+    afterEvaluate { project ->
+        if (project.hasProperty('android')) {
+            publishing {
+                publications {
+                    release(MavenPublication) {
+                        from components.release
+                        groupId = GROUP
+                        artifactId = POM_ARTIFACT_ID
+                        version = VERSION_NAME
+                    }
+                }
+            }
+        }
+    }
+} 

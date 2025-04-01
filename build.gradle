@@ -20,6 +20,12 @@ buildscript {
         // in the individual module build.gradle files
     }
 }
+
+// Apply JitPack configuration if building for JitPack
+if (System.getenv('JITPACK') == 'true') {
+    apply from: 'gradle/jitpack.gradle'
+}
+
 apply plugin: 'io.codearte.nexus-staging'
 
 subprojects {

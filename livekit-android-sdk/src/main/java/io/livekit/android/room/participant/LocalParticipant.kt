@@ -34,6 +34,7 @@ import io.livekit.android.room.DefaultsManager
 import io.livekit.android.room.RTCEngine
 import io.livekit.android.room.Room
 import io.livekit.android.room.TrackBitrateInfo
+import io.livekit.android.room.datastream.outgoing.OutgoingDataStreamManager
 import io.livekit.android.room.isSVCCodec
 import io.livekit.android.room.rpc.RpcManager
 import io.livekit.android.room.track.DataPublishReliability
@@ -49,6 +50,7 @@ import io.livekit.android.room.track.TrackPublication
 import io.livekit.android.room.track.VideoCaptureParameter
 import io.livekit.android.room.track.VideoCodec
 import io.livekit.android.room.track.VideoEncoding
+import io.livekit.android.room.track.screencapture.ScreenCaptureParams
 import io.livekit.android.room.util.EncodingUtils
 import io.livekit.android.rpc.RpcError
 import io.livekit.android.util.LKLog
@@ -68,7 +70,6 @@ import livekit.LivekitModels
 import livekit.LivekitModels.Codec
 import livekit.LivekitModels.DataPacket
 import livekit.LivekitModels.TrackInfo
-import livekit.LivekitModels.VideoLayer
 import livekit.LivekitRtc
 import livekit.LivekitRtc.AddTrackRequest
 import livekit.LivekitRtc.SimulcastCodec
@@ -107,7 +108,8 @@ internal constructor(
     coroutineDispatcher: CoroutineDispatcher,
     @Named(InjectionNames.SENDER)
     private val capabilitiesGetter: CapabilitiesGetter,
-) : Participant(Sid(""), null, coroutineDispatcher) {
+    private val outgoingDataStreamManager: OutgoingDataStreamManager,
+) : Participant(Sid(""), null, coroutineDispatcher), OutgoingDataStreamManager by outgoingDataStreamManager {
 
     var audioTrackCaptureDefaults: LocalAudioTrackOptions by defaultsManager::audioTrackCaptureDefaults
     var audioTrackPublishDefaults: AudioTrackPublishDefaults by defaultsManager::audioTrackPublishDefaults
@@ -221,6 +223,7 @@ internal constructor(
         mediaProjectionPermissionResultData: Intent,
         options: LocalVideoTrackOptions = screenShareTrackCaptureDefaults.copy(),
         videoProcessor: VideoProcessor? = null,
+        onStop: (Track) -> Unit,
     ): LocalScreencastVideoTrack {
         val screencastOptions = options.copy(isScreencast = true)
         return LocalScreencastVideoTrack.createTrack(
@@ -232,6 +235,7 @@ internal constructor(
             eglBase,
             screencastVideoTrackFactory,
             videoProcessor,
+            onStop,
         )
     }
 
@@ -292,15 +296,15 @@ internal constructor(
     @Throws(TrackException.PublishException::class)
     suspend fun setScreenShareEnabled(
         enabled: Boolean,
-        mediaProjectionPermissionResultData: Intent? = null,
+        screenCaptureParams: ScreenCaptureParams? = null,
     ) {
-        setTrackEnabled(Track.Source.SCREEN_SHARE, enabled, mediaProjectionPermissionResultData)
+        setTrackEnabled(Track.Source.SCREEN_SHARE, enabled, screenCaptureParams)
     }
 
     private suspend fun setTrackEnabled(
         source: Track.Source,
         enabled: Boolean,
-        mediaProjectionPermissionResultData: Intent? = null,
+        screenCaptureParams: ScreenCaptureParams? = null,
     ) {
         val pubLock = sourcePubLocks[source]!!
         pubLock.withLock {
@@ -326,12 +330,15 @@ internal constructor(
                         }
 
                         Track.Source.SCREEN_SHARE -> {
-                            if (mediaProjectionPermissionResultData == null) {
-                                throw IllegalArgumentException("Media Projection permission result data is required to create a screen share track.")
+                            if (screenCaptureParams == null) {
+                                throw IllegalArgumentException("Media Projection params is required to create a screen share track.")
                             }
                             val track =
-                                createScreencastTrack(mediaProjectionPermissionResultData = mediaProjectionPermissionResultData)
-                            track.startForegroundService(null, null)
+                                createScreencastTrack(mediaProjectionPermissionResultData = screenCaptureParams.mediaProjectionPermissionResultData) {
+                                    unpublishTrack(it)
+                                    screenCaptureParams.onStop?.invoke()
+                                }
+                            track.startForegroundService(screenCaptureParams.notificationId, screenCaptureParams.notification)
                             track.startCapture()
                             publishVideoTrack(track, options = VideoTrackPublishOptions(null, screenShareTrackPublishDefaults))
                         }
@@ -689,23 +696,6 @@ internal constructor(
             encodings.add(rtpEncoding)
             return encodings
         } else if (simulcast) {
-            // Use custom simulcast layers if provided
-            if (options.simulcastLayers != null) {
-                options.simulcastLayers.forEachIndexed { index, layer ->
-                    if (index >= EncodingUtils.VIDEO_RIDS.size) {
-                        throw IllegalStateException("Too many simulcast layers provided. Maximum is ${EncodingUtils.VIDEO_RIDS.size}")
-                    }
-                    val rid = EncodingUtils.VIDEO_RIDS[index]
-                    val rtpEncoding = RtpParameters.Encoding(rid, true, null).apply {
-                        maxBitrateBps = layer.bitrate
-                        scaleResolutionDownBy = width.toDouble() / layer.width
-                    }
-                    encodings.add(rtpEncoding)
-                }
-                return encodings
-            }
-
-            // Default simulcast behavior
             val presets = EncodingUtils.presetsForResolution(width, height)
             val midPreset = presets[1]
             val lowPreset = presets[0]
@@ -1592,12 +1582,6 @@ abstract class BaseVideoTrackPublishOptions {
      * null value indicates default value (maintain framerate).
      */
     abstract val degradationPreference: RtpParameters.DegradationPreference?
-
-    /**
-     * Custom simulcast layers to use instead of the default ones.
-     * If provided, these will override the default simulcast layer generation.
-     */
-    abstract val simulcastLayers: List<VideoLayer>?
 }
 
 data class VideoTrackPublishDefaults(
@@ -1607,7 +1591,6 @@ data class VideoTrackPublishDefaults(
     override val scalabilityMode: String? = null,
     override val backupCodec: BackupVideoCodec? = null,
     override val degradationPreference: RtpParameters.DegradationPreference? = null,
-    override val simulcastLayers: List<VideoLayer>? = null,
 ) : BaseVideoTrackPublishOptions()
 
 data class VideoTrackPublishOptions(
@@ -1620,7 +1603,6 @@ data class VideoTrackPublishOptions(
     override val source: Track.Source? = null,
     override val stream: String? = null,
     override val degradationPreference: RtpParameters.DegradationPreference? = null,
-    override val simulcastLayers: List<VideoLayer>? = null,
 ) : BaseVideoTrackPublishOptions(), TrackPublishOptions {
     constructor(
         name: String? = null,
@@ -1637,7 +1619,6 @@ data class VideoTrackPublishOptions(
         source = source,
         stream = stream,
         degradationPreference = base.degradationPreference,
-        simulcastLayers = base.simulcastLayers,
     )
 
     fun createBackupOptions(): VideoTrackPublishOptions? {

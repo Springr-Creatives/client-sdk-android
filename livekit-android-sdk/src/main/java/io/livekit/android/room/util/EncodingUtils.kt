@@ -94,7 +94,7 @@ internal object EncodingUtils {
         
         // Define fixed resolutions
         val resolutions = listOf(
-            Pair(1920, 1080), // 1080p
+            Pair(2560, 1440), // 1440p
             Pair(1280, 720),  // 720p
             Pair(960, 540)    // 540p
         )
@@ -104,17 +104,17 @@ internal object EncodingUtils {
                 this.width = width
                 this.height = height
                 quality = when (height) {
-                    1080 -> LivekitModels.VideoQuality.HIGH
+                    1440 -> LivekitModels.VideoQuality.HIGH
                     720 -> LivekitModels.VideoQuality.MEDIUM
                     540 -> LivekitModels.VideoQuality.LOW
                     else -> LivekitModels.VideoQuality.HIGH
                 }
                 // Use a reasonable bitrate for each resolution
                 bitrate = when (height) {
-                    1080 -> 4000000  // 4 Mbps for 1080p
+                    1440 -> 6000000  // 6 Mbps for 1440p
                     720 -> 2500000   // 2.5 Mbps for 720p
                     540 -> 1000000   // 1 Mbps for 540p
-                    else -> 4000000
+                    else -> 6000000
                 }
                 ssrc = 0
             }.build()

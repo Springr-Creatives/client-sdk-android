@@ -402,7 +402,7 @@ internal constructor(
         }
     }
 
-    /**
+    /** 
      * Publishes an video track.
      *
      * @param track The track to publish.
@@ -688,6 +688,23 @@ internal constructor(
             encodings.add(rtpEncoding)
             return encodings
         } else if (simulcast) {
+            // Use custom simulcast layers if provided
+            if (options.simulcastLayers != null) {
+                options.simulcastLayers.forEachIndexed { index, layer ->
+                    if (index >= EncodingUtils.VIDEO_RIDS.size) {
+                        throw IllegalStateException("Too many simulcast layers provided. Maximum is ${EncodingUtils.VIDEO_RIDS.size}")
+                    }
+                    val rid = EncodingUtils.VIDEO_RIDS[index]
+                    val rtpEncoding = RtpParameters.Encoding(rid, true, null).apply {
+                        maxBitrateBps = layer.bitrate
+                        scaleResolutionDownBy = width.toDouble() / layer.width
+                    }
+                    encodings.add(rtpEncoding)
+                }
+                return encodings
+            }
+
+            // Default simulcast behavior
             val presets = EncodingUtils.presetsForResolution(width, height)
             val midPreset = presets[1]
             val lowPreset = presets[0]
@@ -1574,6 +1591,12 @@ abstract class BaseVideoTrackPublishOptions {
      * null value indicates default value (maintain framerate).
      */
     abstract val degradationPreference: RtpParameters.DegradationPreference?
+
+    /**
+     * Custom simulcast layers to use instead of the default ones.
+     * If provided, these will override the default simulcast layer generation.
+     */
+    abstract val simulcastLayers: List<VideoLayer>?
 }
 
 data class VideoTrackPublishDefaults(
@@ -1583,6 +1606,7 @@ data class VideoTrackPublishDefaults(
     override val scalabilityMode: String? = null,
     override val backupCodec: BackupVideoCodec? = null,
     override val degradationPreference: RtpParameters.DegradationPreference? = null,
+    override val simulcastLayers: List<VideoLayer>? = null,
 ) : BaseVideoTrackPublishOptions()
 
 data class VideoTrackPublishOptions(
@@ -1595,6 +1619,7 @@ data class VideoTrackPublishOptions(
     override val source: Track.Source? = null,
     override val stream: String? = null,
     override val degradationPreference: RtpParameters.DegradationPreference? = null,
+    override val simulcastLayers: List<VideoLayer>? = null,
 ) : BaseVideoTrackPublishOptions(), TrackPublishOptions {
     constructor(
         name: String? = null,
@@ -1611,6 +1636,7 @@ data class VideoTrackPublishOptions(
         source = source,
         stream = stream,
         degradationPreference = base.degradationPreference,
+        simulcastLayers = base.simulcastLayers,
     )
 
     fun createBackupOptions(): VideoTrackPublishOptions? {

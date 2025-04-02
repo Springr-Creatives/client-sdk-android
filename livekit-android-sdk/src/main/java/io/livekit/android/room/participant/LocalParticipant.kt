@@ -68,6 +68,7 @@ import livekit.LivekitModels
 import livekit.LivekitModels.Codec
 import livekit.LivekitModels.DataPacket
 import livekit.LivekitModels.TrackInfo
+import livekit.LivekitModels.VideoLayer
 import livekit.LivekitRtc
 import livekit.LivekitRtc.AddTrackRequest
 import livekit.LivekitRtc.SimulcastCodec
@@ -402,7 +403,7 @@ internal constructor(
         }
     }
 
-    /** 
+    /**
      * Publishes an video track.
      *
      * @param track The track to publish.

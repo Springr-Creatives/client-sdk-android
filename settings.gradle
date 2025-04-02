@@ -21,12 +21,3 @@ dependencyResolutionManagement {
 }
 include ':sample-app', ':sample-app-compose', ':livekit-android-sdk'
 rootProject.name = 'livekit-android'
-include ':sample-app-common'
-include ':livekit-lint'
-include ':video-encode-decode-test'
-include ':sample-app-basic'
-include ':sample-app-record-local'
-include ':examples:selfie-segmentation'
-include ':livekit-android-test'
-include ':livekit-android-camerax'
-include ':examples:screenshare-audio'

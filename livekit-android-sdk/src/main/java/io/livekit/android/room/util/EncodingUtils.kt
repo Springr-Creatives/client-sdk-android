@@ -111,10 +111,10 @@ internal object EncodingUtils {
                 }
                 // Use a reasonable bitrate for each resolution
                 bitrate = when (height) {
-                    1440 -> 6000000  // 6 Mbps for 1440p
+                    1440 -> 5000000  // 5 Mbps for 1440p
                     720 -> 2500000   // 2.5 Mbps for 720p
                     540 -> 1000000   // 1 Mbps for 540p
-                    else -> 6000000
+                    else -> 5000000
                 }
                 ssrc = 0
             }.build()

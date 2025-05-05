@@ -114,9 +114,9 @@ internal object EncodingUtils {
         }
     } else {
         val scalingFactors = mapOf(
-            "f" to 1.0,     // Full resolution (1080p)
-            "h" to 1.5,    // 720p
-            "q" to 2.25    // 480p
+            "f" to 1.0,     // Full resolution (1440p)
+            "h" to 2.0,    // 720p
+            "q" to 3.0     // 480p
         )
 
         encodings.map { encoding ->
@@ -130,7 +130,7 @@ internal object EncodingUtils {
                 height = (trackHeight / scaleDownBy).toInt()
                 quality = videoQuality
                 bitrate = when (encoding.rid) {
-                    "f" -> 3000000  // 3 Mbps for 1080p
+                    "f" -> 4000000  // 4 Mbps for 1440p
                     "h" -> 2000000  // 2 Mbps for 720p
                     "q" -> 1000000  // 1 Mbps for 480p
                     else -> encoding.maxBitrateBps ?: 0

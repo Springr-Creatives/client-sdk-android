@@ -29,16 +29,13 @@
  import kotlin.math.min
  import kotlin.math.pow
  import kotlin.math.roundToInt
- 
+
  internal object EncodingUtils {
- 
+
      val VIDEO_RIDS = arrayOf("q", "h", "f")
- 
+
      // Note: maintain order from smallest to biggest.
      private val PRESETS_16_9 = listOf(
-         VideoPreset169.H90,
-         VideoPreset169.H180,
-         VideoPreset169.H216,
          VideoPreset169.H360,
          VideoPreset169.H540,
          VideoPreset169.H720,
@@ -46,12 +43,9 @@
          VideoPreset169.H1440,
          VideoPreset169.H2160,
      )
- 
+
      // Note: maintain order from smallest to biggest.
      private val PRESETS_4_3 = listOf(
-         VideoPreset43.H120,
-         VideoPreset43.H180,
-         VideoPreset43.H240,
          VideoPreset43.H360,
          VideoPreset43.H480,
          VideoPreset43.H540,
@@ -59,19 +53,19 @@
          VideoPreset43.H1080,
          VideoPreset43.H1440,
      )
- 
+
      fun determineAppropriateEncoding(width: Int, height: Int): VideoEncoding {
          val presets = presetsForResolution(width, height)
- 
+
          // presets assume width is longest size
          val longestSize = max(width, height)
          val preset = presets
              .firstOrNull { it.capture.width >= longestSize }
              ?: presets.last()
- 
+
          return preset.encoding
      }
- 
+
      fun presetsForResolution(width: Int, height: Int): List<VideoPreset> {
          val longestSize = max(width, height)
          val shortestSize = min(width, height)
@@ -82,66 +76,56 @@
              PRESETS_4_3
          }
      }
- 
+
      fun videoLayersFromEncodings(
-     trackWidth: Int,
-     trackHeight: Int,
-     encodings: List<RtpParameters.Encoding>,
-     isSVC: Boolean,
- ): List<LivekitModels.VideoLayer> {
-     return if (encodings.isEmpty()) {
-         listOf(
-             LivekitModels.VideoLayer.newBuilder().apply {
-                 width = trackWidth
-                 height = trackHeight
-                 quality = LivekitModels.VideoQuality.HIGH
-                 bitrate = 0
-                 ssrc = 0
-             }.build(),
-         )
-     } else if (isSVC) {
-         val encodingSM = encodings.first().scalabilityMode!!
-         val scalabilityMode = ScalabilityMode.parseFromString(encodingSM)
-         val maxBitrate = encodings.first().maxBitrateBps ?: 0
-         (0 until scalabilityMode.spatial).map { index ->
-             LivekitModels.VideoLayer.newBuilder().apply {
-                 width = ceil(trackWidth / (2f.pow(index))).roundToInt()
-                 height = ceil(trackHeight / (2f.pow(index))).roundToInt()
-                 quality = LivekitModels.VideoQuality.forNumber(LivekitModels.VideoQuality.HIGH.number - index)
-                 bitrate = ceil(maxBitrate / 3f.pow(index)).roundToInt()
-                 ssrc = 0
-             }.build()
-         }
-     } else {
-         val scalingFactors = mapOf(
-             "f" to 1.0,        // 1080p
-             "h" to 1.5,        // 720p = 1080 / 1.5
-             "q" to 2.25        // 480p = 1080 / 2.25
-         )
- 
-         encodings.map { encoding ->
-             val scaleDownBy = scalingFactors[encoding.rid] ?: encoding.scaleResolutionDownBy ?: 1.0
-             var videoQuality = videoQualityForRid(encoding.rid ?: "")
-             if (videoQuality == LivekitModels.VideoQuality.UNRECOGNIZED && encodings.size == 1) {
-                 videoQuality = LivekitModels.VideoQuality.HIGH
+         trackWidth: Int,
+         trackHeight: Int,
+         encodings: List<RtpParameters.Encoding>,
+         isSVC: Boolean,
+     ): List<LivekitModels.VideoLayer> {
+         return if (encodings.isEmpty()) {
+             listOf(
+                 LivekitModels.VideoLayer.newBuilder().apply {
+                     width = trackWidth
+                     height = trackHeight
+                     quality = LivekitModels.VideoQuality.HIGH
+                     bitrate = 0
+                     ssrc = 0
+                 }.build(),
+             )
+         } else if (isSVC) {
+             val encodingSM = encodings.first().scalabilityMode!!
+             val scalabilityMode = ScalabilityMode.parseFromString(encodingSM)
+             val maxBitrate = encodings.first().maxBitrateBps ?: 0
+             (0 until scalabilityMode.spatial).map { index ->
+                 LivekitModels.VideoLayer.newBuilder().apply {
+                     width = ceil(trackWidth / (2f.pow(index))).roundToInt()
+                     height = ceil(trackHeight / (2f.pow(index))).roundToInt()
+                     quality = LivekitModels.VideoQuality.forNumber(LivekitModels.VideoQuality.HIGH.number - index)
+                     bitrate = ceil(maxBitrate / 3f.pow(index)).roundToInt()
+                     ssrc = 0
+                 }.build()
              }
-             LivekitModels.VideoLayer.newBuilder().apply {
-                 width = (trackWidth / scaleDownBy).toInt()
-                 height = (trackHeight / scaleDownBy).toInt()
-                 quality = videoQuality
-                 bitrate = when (encoding.rid) {
-                     "f" -> 8000000  // 8 Mbps for 1440p
-                     "h" -> 5000000  // 5 Mbps for 720p
-                     "q" -> 2500000  // 2.5 Mbps for 480p
-                     else -> encoding.maxBitrateBps ?: 0
+         } else {
+             encodings.map { encoding ->
+                 val scaleDownBy = encoding.scaleResolutionDownBy ?: 1.0
+                 var videoQuality = videoQualityForRid(encoding.rid ?: "")
+                 if (videoQuality == LivekitModels.VideoQuality.UNRECOGNIZED && encodings.size == 1) {
+                     videoQuality = LivekitModels.VideoQuality.HIGH
                  }
-                 ssrc = 0
-             }.build()
+                 LivekitModels.VideoLayer.newBuilder().apply {
+                     // Internally, WebRTC casts directly to int without rounding.
+                     // https://github.com/webrtc-sdk/webrtc/blob/8c7139f8e6fa19ddf2c91510c177a19746e1ded3/media/engine/webrtc_video_engine.cc#L3676
+                     width = (trackWidth / scaleDownBy).toInt()
+                     height = (trackHeight / scaleDownBy).toInt()
+                     quality = videoQuality
+                     bitrate = encoding.maxBitrateBps ?: 0
+                     ssrc = 0
+                 }.build()
+             }
          }
      }
- }
- 
- 
+
      fun videoQualityForRid(rid: String): LivekitModels.VideoQuality {
          return when (rid) {
              "f" -> LivekitModels.VideoQuality.HIGH
@@ -150,7 +134,7 @@
              else -> LivekitModels.VideoQuality.UNRECOGNIZED
          }
      }
- 
+
      fun ridForVideoQuality(quality: LivekitModels.VideoQuality): String? {
          return when (quality) {
              LivekitModels.VideoQuality.HIGH -> "f"
@@ -160,4 +144,3 @@
          }
      }
  }
- 

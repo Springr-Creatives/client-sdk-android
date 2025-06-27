@@ -37,7 +37,6 @@
      // Note: maintain order from smallest to biggest.
      private val PRESETS_16_9 = listOf(
          VideoPreset169.H360,
-         VideoPreset169.H480,
          VideoPreset169.H540,
          VideoPreset169.H720,
          VideoPreset169.H1080,

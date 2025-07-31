@@ -36,9 +36,6 @@ internal object EncodingUtils {
 
     // Note: maintain order from smallest to biggest.
     private val PRESETS_16_9 = listOf(
-        VideoPreset169.H90,
-        VideoPreset169.H180,
-        VideoPreset169.H216,
         VideoPreset169.H360,
         VideoPreset169.H540,
         VideoPreset169.H720,
@@ -49,9 +46,6 @@ internal object EncodingUtils {
 
     // Note: maintain order from smallest to biggest.
     private val PRESETS_4_3 = listOf(
-        VideoPreset43.H120,
-        VideoPreset43.H180,
-        VideoPreset43.H240,
         VideoPreset43.H360,
         VideoPreset43.H480,
         VideoPreset43.H540,

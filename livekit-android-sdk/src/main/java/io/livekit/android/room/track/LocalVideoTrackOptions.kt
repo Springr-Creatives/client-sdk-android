@@ -128,28 +128,28 @@ enum class VideoPreset169(
         VideoEncoding(180_000, 15),
     ),
     H360(
-        VideoCaptureParameter(640, 360, 30),
-        VideoEncoding(450_000, 30),
+        VideoCaptureParameter(640, 360, 24),
+        VideoEncoding(450_000, 24),
     ),
     H540(
-        VideoCaptureParameter(960, 540, 30),
-        VideoEncoding(800_000, 30),
+        VideoCaptureParameter(854, 480, 24),
+        VideoEncoding(500_000, 24),
     ),
     H720(
-        VideoCaptureParameter(1280, 720, 30),
-        VideoEncoding(1_700_000, 30),
+        VideoCaptureParameter(1280, 720, 24),
+        VideoEncoding(1_700_000, 24),
     ),
     H1080(
-        VideoCaptureParameter(1920, 1080, 30),
-        VideoEncoding(3_000_000, 30),
+        VideoCaptureParameter(1920, 1080, 24),
+        VideoEncoding(3_000_000, 24),
     ),
     H1440(
-        VideoCaptureParameter(2560, 1440, 30),
-        VideoEncoding(5_000_000, 30),
+        VideoCaptureParameter(2560, 1440, 24),
+        VideoEncoding(5_000_000, 24),
     ),
     H2160(
-        VideoCaptureParameter(3840, 2160, 30),
-        VideoEncoding(8_000_000, 30),
+        VideoCaptureParameter(3840, 2160, 24),
+        VideoEncoding(8_000_000, 24),
     ),
 }
 
